@@ -1,0 +1,39 @@
+version: '3.1'
+services:
+  ghost:
+    image: ghost:2.30.2
+    restart: always
+    volumes:
+      - ${blog_root_directory}/content:/var/lib/ghost/content
+    environment:
+      url: http://${domain_name}
+      database__client: sqlite3
+      database__connection__filename: content/data/ghost-blog.db
+      database__useNullAsDefault: "true"
+      database__debug: "false"
+      mail__transport: SMTP
+      mail__options__service: Mailgun
+      mail__options__host: smtp.mailgun.org
+      mail__options__port: 465
+      mail__options__secureConnection: "true"
+      mail__options__auth__user: ${mailgun_auth_user}
+      mail__options__auth__pass: ${mailgun_auth_pass}
+  nginx:
+    image: nginx
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ${blog_root_directory}/nginx:/etc/nginx/conf.d
+      - ${blog_root_directory}/ssl:/etc/nginxssl
+      - ${blog_root_directory}/certbot/conf:/etc/letsencrypt
+      - ${blog_root_directory}/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'while :; do nginx -s reload || true; sleep 6h; done & nginx -g \"daemon off;\"'"
+  certbot:
+    image: certbot/certbot
+    restart: always
+    volumes:
+      - ${blog_root_directory}/certbot/conf:/etc/letsencrypt
+      - ${blog_root_directory}/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'while :; do certbot renew || true; sleep 12h; done'"
